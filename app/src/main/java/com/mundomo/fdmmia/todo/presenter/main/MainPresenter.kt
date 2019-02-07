@@ -30,37 +30,61 @@ class MainPresenter @Inject constructor(
         val allObservable = Observable.mergeArray(
             getLiveTodosIntent,
             refreshTodosIntent
-        ).onErrorReturn { MainViewState.Error(it) }
+        ).onErrorReturn { PartialMainViewState.Error(it) }
             .switchMap { viewState ->
                 when (viewState) {
-                    is MainViewState.Error -> Observable.just<MainViewState>(MainViewState.ClearSingleEvent)
+                    is PartialMainViewState.Error -> Observable.just<PartialMainViewState>(
+                        PartialMainViewState.ClearSingleEvent
+                    )
                         .startWith(viewState)
                     else -> Observable.just(viewState)
                 }
             }
+            .doOnNext { Timber.d("allObservable render: $it") }
             .observeOn(main)
-
-        subscribeViewState(allObservable, MainView::render)
-
+        val initialState = MainViewState()
+        val stateObservable = allObservable.scan(initialState, this::viewStateReducer)
+            .distinctUntilChanged()
+        subscribeViewState(stateObservable, MainView::render)
     }
 
-    private fun getLiveTodosObservable(): Observable<MainViewState> = todoRepository.getLiveTodos()
-        .map<MainViewState> { MainViewState.Todos(it) }
-        .startWith(MainViewState.ShowLoading)
-        .onErrorReturn { MainViewState.Error(it) }
-        .switchMap { viewState ->
-            when (viewState) {
-                MainViewState.ShowLoading -> Observable.just(viewState)
-                else -> Observable.just<MainViewState>(MainViewState.HideLoading)
-                    .startWith(viewState)
+    private fun getLiveTodosObservable(): Observable<PartialMainViewState> =
+        todoRepository.getLiveTodos()
+            .map<PartialMainViewState> { PartialMainViewState.Todos(it) }
+            .startWith(PartialMainViewState.ShowLoading)
+            .onErrorReturn { PartialMainViewState.Error(it) }
+            .switchMap { viewState ->
+                when (viewState) {
+                    PartialMainViewState.ShowLoading -> Observable.just(viewState)
+                    else -> Observable.just<PartialMainViewState>(PartialMainViewState.HideLoading)
+                        .startWith(viewState)
+                }
             }
-        }
-        .subscribeOn(main)
+            .subscribeOn(main)
 
-    private fun refreshTodos(): Observable<MainViewState> = todoRepository.refreshTodos()
-        .map<MainViewState> { MainViewState.HideLoading }
-        .startWith(MainViewState.ShowLoading)
-        .onErrorReturn { MainViewState.Error(it) }
+    private fun refreshTodos(): Observable<PartialMainViewState> = todoRepository.refreshTodos()
+        .map<PartialMainViewState> { PartialMainViewState.HideLoading }
+        .startWith(PartialMainViewState.ShowLoading)
+        .onErrorReturn { PartialMainViewState.Error(it) }
         .subscribeOn(io)
 
+    private fun viewStateReducer(
+        previousState: MainViewState,
+        changes: PartialMainViewState
+    ): MainViewState = when (changes) {
+        is PartialMainViewState.Todos -> MainViewState(todos = changes.todos)
+        is PartialMainViewState.Error -> {
+            previousState.error = changes.error
+            previousState
+        }
+        PartialMainViewState.ShowLoading -> {
+            previousState.isLoading = true
+            previousState
+        }
+        PartialMainViewState.HideLoading -> {
+            previousState.isLoading = false
+            previousState
+        }
+        PartialMainViewState.ClearSingleEvent -> MainViewState(todos = previousState.todos)
+    }
 }

@@ -1,6 +1,5 @@
 package com.mundomo.fdmmia.todo.presenter.main
 
-import android.content.Intent
 import android.os.Bundle
 import android.transition.TransitionManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -52,11 +51,12 @@ class MainActivity : BaseMviActivity<MainView, MainViewState, MainPresenter, Mai
     override fun onStart() {
         super.onStart()
         viewAction.onNext(MainViewAction.GetLiveTodos)
+
     }
 
-    override fun getLiveTodos(): Observable<Boolean> = viewAction
+    override fun getLiveTodos(): Observable<Boolean> = Observable.just(true)/*viewAction
         .filter { it === MainViewAction.GetLiveTodos }
-        .map { true }
+        .map { true }*/
         .doOnNext { Timber.d("start getLiveTodos: $it") }
 
     override fun refreshTodos(): Observable<Boolean> = swipe_refresh_layout.refreshes()
@@ -65,13 +65,10 @@ class MainActivity : BaseMviActivity<MainView, MainViewState, MainPresenter, Mai
 
     override fun render(viewState: MainViewState) {
         TransitionManager.beginDelayedTransition(main_view)
-        when (viewState) {
-            is MainViewState.Todos -> setTodos(viewState.todos)
-            MainViewState.ShowLoading -> showLoading(true)
-            MainViewState.HideLoading -> showLoading(false)
-            is MainViewState.Error -> showError(viewState.error)
-            MainViewState.ClearSingleEvent -> Timber.d("clear single event")
-        }
+        Timber.d("render: $viewState")
+        setTodos(viewState.todos)
+        showLoading(viewState.isLoading)
+        viewState.error?.let(this::showError)
     }
 
     private fun setTodos(todos: List<Todo>) {
