@@ -8,20 +8,4 @@ data class MainViewState(
     var error: Throwable? = null,
     var isLoading: Boolean = false,
     var clearSingleEvent: Boolean = false
-) : MviViewState {
-
-    /*data class Todos(val todos: List<Todo>) : MainViewState()
-
-    data class Error(val error: Throwable) : MainViewState() {
-        init {
-            Timber.e(error)
-        }
-    }
-
-    object ShowLoading : MainViewState()
-
-    object HideLoading : MainViewState()
-
-    object ClearSingleEvent : MainViewState()*/
-
-}
+) : MviViewState

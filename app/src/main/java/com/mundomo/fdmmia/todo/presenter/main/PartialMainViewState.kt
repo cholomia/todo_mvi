@@ -1,9 +1,10 @@
 package com.mundomo.fdmmia.todo.presenter.main
 
 import com.mundomo.fdmmia.todo.domain.model.Todo
+import com.mundomo.fdmmia.todo.presenter.base.MviViewState
 import timber.log.Timber
 
-sealed class PartialMainViewState {
+sealed class PartialMainViewState : MviViewState {
 
     data class Todos(val todos: List<Todo>) : PartialMainViewState()
 
@@ -14,8 +15,6 @@ sealed class PartialMainViewState {
     }
 
     object ShowLoading : PartialMainViewState()
-
-    object HideLoading : PartialMainViewState()
 
     object ClearSingleEvent : PartialMainViewState()
 

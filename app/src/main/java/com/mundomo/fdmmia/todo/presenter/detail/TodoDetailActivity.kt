@@ -34,7 +34,7 @@ class TodoDetailActivity :
     @Inject
     lateinit var presenterProvider: Provider<TodoDetailPresenter>
 
-    private var todoId: Long = 0L
+    private val todoId: Long by lazy { intent.getLongExtra(TODO_ID, -1L) }
 
     override fun injectDependencies(appComponent: AppComponent) {
         appComponent.plus(ActivityModule(this))
@@ -46,17 +46,9 @@ class TodoDetailActivity :
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_todo_detail)
-        todoId = intent.getLongExtra(TODO_ID, -1L)
     }
 
-    override fun onStart() {
-        super.onStart()
-        viewAction.onNext(TodoDetailViewAction.GetTodo)
-    }
-
-    override fun getTodo(): Observable<Long> = viewAction
-        .filter { it is TodoDetailViewAction.GetTodo }
-        .map { todoId }
+    override fun getTodo(): Observable<Long> = Observable.just(todoId)
         .doOnNext { Timber.d("start getTodo: $it") }
 
     override fun deleteTodo(): Observable<Long> = btn_delete.clicks()

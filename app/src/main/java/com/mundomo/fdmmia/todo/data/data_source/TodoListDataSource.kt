@@ -3,8 +3,11 @@ package com.mundomo.fdmmia.todo.data.data_source
 import com.mundomo.fdmmia.todo.data.IO_SCHEDULER
 import com.mundomo.fdmmia.todo.data.MAIN_SCHEDULER
 import com.mundomo.fdmmia.todo.data.common.RealmInstance
+import com.mundomo.fdmmia.todo.data.common.RepositoryCachePrefs
 import com.mundomo.fdmmia.todo.data.dao.TodoDao
 import com.mundomo.fdmmia.todo.data.network.ApiService
+import com.mundomo.fdmmia.todo.domain.common.hours
+import com.mundomo.fdmmia.todo.domain.common.minutes
 import com.mundomo.fdmmia.todo.domain.data_source.BaseDataSource
 import com.mundomo.fdmmia.todo.domain.enums.CacheStatus
 import com.mundomo.fdmmia.todo.domain.model.Todo
@@ -18,9 +21,12 @@ class TodoListDataSource @Inject constructor(
     private val apiService: ApiService,
     private val todoDao: TodoDao,
     private val realmInstance: RealmInstance,
+    private val repositoryCachePrefs: RepositoryCachePrefs,
     @Named(IO_SCHEDULER) private val io: Scheduler,
     @Named(MAIN_SCHEDULER) private val main: Scheduler
 ) : BaseDataSource<Boolean, List<Todo>, List<Todo>>() {
+
+    private val cacheKeyName: String = TodoListDataSource::class.java.name
 
     override fun query(key: Boolean): Observable<List<Todo>> = Observable.defer {
         todoDao.getLiveList(realmInstance.getRealm())
@@ -35,10 +41,14 @@ class TodoListDataSource @Inject constructor(
         .subscribeOn(io)
 
 
-    override fun getCacheStatus(key: Boolean): CacheStatus = CacheStatus.STALE
+    override fun getCacheStatus(key: Boolean): CacheStatus = repositoryCachePrefs.getCacheUpdate(
+        cacheKeyName,
+        10.minutes.inMilliseconds.longValue,
+        1.hours.inMilliseconds.longValue
+    )
 
     override fun updateCacheStatus(key: Boolean) {
-        // todo: update cache status, ignore for now
+        repositoryCachePrefs.updateCacheUpdate(cacheKeyName)
     }
 
 }

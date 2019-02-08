@@ -17,7 +17,8 @@ import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Provider
 
-class MainActivity : BaseMviActivity<MainView, MainViewState, MainPresenter, MainViewAction>(),
+class MainActivity :
+    BaseMviActivity<MainView, MainViewState, MainPresenter, MainViewAction>(),
     MainView {
 
     @Inject
@@ -51,12 +52,21 @@ class MainActivity : BaseMviActivity<MainView, MainViewState, MainPresenter, Mai
     override fun onStart() {
         super.onStart()
         viewAction.onNext(MainViewAction.GetLiveTodos)
-
     }
 
-    override fun getLiveTodos(): Observable<Boolean> = Observable.just(true)/*viewAction
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        Timber.d("onSaveInstanceState")
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        super.onRestoreInstanceState(savedInstanceState)
+        Timber.d("onRestoreInstanceState")
+    }
+
+    override fun getLiveTodos(): Observable<Boolean> = viewAction
         .filter { it === MainViewAction.GetLiveTodos }
-        .map { true }*/
+        .map { true }
         .doOnNext { Timber.d("start getLiveTodos: $it") }
 
     override fun refreshTodos(): Observable<Boolean> = swipe_refresh_layout.refreshes()
@@ -72,6 +82,7 @@ class MainActivity : BaseMviActivity<MainView, MainViewState, MainPresenter, Mai
     }
 
     private fun setTodos(todos: List<Todo>) {
+        Timber.d("render setTodos - size = ${todos.size}")
         todoAdapter.submitList(todos)
     }
 

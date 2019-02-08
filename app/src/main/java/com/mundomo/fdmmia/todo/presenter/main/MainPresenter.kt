@@ -20,7 +20,7 @@ class MainPresenter @Inject constructor(
         Timber.d("bindIntents")
 
         val getLiveTodosIntent = intent(MainView::getLiveTodos)
-            .flatMap { getLiveTodosObservable() }
+            .switchMap { getLiveTodosObservable() }
             .doOnNext { Timber.d("render getLiveTodos: $it") }
 
         val refreshTodosIntent = intent(MainView::refreshTodos)
@@ -35,13 +35,12 @@ class MainPresenter @Inject constructor(
                 when (viewState) {
                     is PartialMainViewState.Error -> Observable.just<PartialMainViewState>(
                         PartialMainViewState.ClearSingleEvent
-                    )
-                        .startWith(viewState)
+                    ).startWith(viewState)
                     else -> Observable.just(viewState)
                 }
             }
-            .doOnNext { Timber.d("allObservable render: $it") }
             .observeOn(main)
+
         val initialState = MainViewState()
         val stateObservable = allObservable.scan(initialState, this::viewStateReducer)
             .distinctUntilChanged()
@@ -53,17 +52,10 @@ class MainPresenter @Inject constructor(
             .map<PartialMainViewState> { PartialMainViewState.Todos(it) }
             .startWith(PartialMainViewState.ShowLoading)
             .onErrorReturn { PartialMainViewState.Error(it) }
-            .switchMap { viewState ->
-                when (viewState) {
-                    PartialMainViewState.ShowLoading -> Observable.just(viewState)
-                    else -> Observable.just<PartialMainViewState>(PartialMainViewState.HideLoading)
-                        .startWith(viewState)
-                }
-            }
             .subscribeOn(main)
 
     private fun refreshTodos(): Observable<PartialMainViewState> = todoRepository.refreshTodos()
-        .map<PartialMainViewState> { PartialMainViewState.HideLoading }
+        .map<PartialMainViewState> { PartialMainViewState.ClearSingleEvent }
         .startWith(PartialMainViewState.ShowLoading)
         .onErrorReturn { PartialMainViewState.Error(it) }
         .subscribeOn(io)
@@ -72,8 +64,9 @@ class MainPresenter @Inject constructor(
         previousState: MainViewState,
         changes: PartialMainViewState
     ): MainViewState = when (changes) {
-        is PartialMainViewState.Todos -> MainViewState(todos = changes.todos)
+        is PartialMainViewState.Todos -> (MainViewState(todos = changes.todos))
         is PartialMainViewState.Error -> {
+            previousState.isLoading = false
             previousState.error = changes.error
             previousState
         }
@@ -81,10 +74,10 @@ class MainPresenter @Inject constructor(
             previousState.isLoading = true
             previousState
         }
-        PartialMainViewState.HideLoading -> {
-            previousState.isLoading = false
+        PartialMainViewState.ClearSingleEvent -> {
+            previousState.error = null
             previousState
         }
-        PartialMainViewState.ClearSingleEvent -> MainViewState(todos = previousState.todos)
     }
+
 }

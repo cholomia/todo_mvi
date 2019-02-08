@@ -3,6 +3,7 @@ package com.mundomo.fdmmia.todo.presenter.detail
 import com.hannesdorfmann.mosby3.mvi.MviBasePresenter
 import com.mundomo.fdmmia.todo.data.IO_SCHEDULER
 import com.mundomo.fdmmia.todo.data.MAIN_SCHEDULER
+import com.mundomo.fdmmia.todo.domain.exception.NoRecordsFoundException
 import com.mundomo.fdmmia.todo.domain.model.Todo
 import com.mundomo.fdmmia.todo.domain.repository.TodoRepository
 import io.reactivex.Observable
@@ -21,7 +22,7 @@ class TodoDetailPresenter @Inject constructor(
         Timber.d("bindIntents")
 
         val getTodoIntent = intent(TodoDetailView::getTodo)
-            .flatMap(this::getTodoObservable)
+            .switchMap(this::getTodoObservable)
             .doOnNext { Timber.d("render getTodoIntent: $it") }
 
         val deleteTodoIntent = intent(TodoDetailView::deleteTodo)
@@ -49,7 +50,12 @@ class TodoDetailPresenter @Inject constructor(
         todoRepository.getLiveTodo(todoId)
             .map<TodoDetailViewState> { TodoDetailViewState.ShowTodo(it) }
             .startWith(TodoDetailViewState.ShowLoading)
-            .onErrorReturn { TodoDetailViewState.Error(it) }
+            .onErrorReturn {
+                when (it) {
+                    is NoRecordsFoundException -> TodoDetailViewState.ClearSingleEvent
+                    else -> TodoDetailViewState.Error(it)
+                }
+            }
             .switchMap { viewState ->
                 when (viewState) {
                     TodoDetailViewState.ShowLoading -> Observable.just(viewState)
