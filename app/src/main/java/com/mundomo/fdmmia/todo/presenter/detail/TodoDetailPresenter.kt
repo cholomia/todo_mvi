@@ -22,62 +22,78 @@ class TodoDetailPresenter @Inject constructor(
         Timber.d("bindIntents")
 
         val getTodoIntent = intent(TodoDetailView::getTodo)
-            .switchMap(this::getTodoObservable)
+            .flatMap(this::getTodoObservable)
             .doOnNext { Timber.d("render getTodoIntent: $it") }
 
         val deleteTodoIntent = intent(TodoDetailView::deleteTodo)
             .flatMap(this::deleteTodoObservable)
             .doOnNext { Timber.d("render deleteTodo: $it") }
 
+        val initialState = TodoDetailViewState()
         val allObservable = Observable.mergeArray(
             getTodoIntent,
             deleteTodoIntent
-        ).onErrorReturn { TodoDetailViewState.Error(it) }
+        ).onErrorReturn { PartialTodoDetailViewState.Error(it) }
             .switchMap { viewState ->
                 when (viewState) {
-                    is TodoDetailViewState.Error -> Observable.just<TodoDetailViewState>(
-                        TodoDetailViewState.ClearSingleEvent
+                    is PartialTodoDetailViewState.Error -> Observable.just<PartialTodoDetailViewState>(
+                        PartialTodoDetailViewState.ClearSingleEvent
                     ).startWith(viewState)
                     else -> Observable.just(viewState)
                 }
             }
+            .scan(initialState, this::viewStateReducer)
+            .distinctUntilChanged()
+            .doOnNext { Timber.d("allObservable render: $it") }
             .observeOn(main)
 
         subscribeViewState(allObservable, TodoDetailView::render)
     }
 
-    private fun getTodoObservable(todoId: Long): Observable<TodoDetailViewState> =
+    private fun getTodoObservable(todoId: Long): Observable<PartialTodoDetailViewState> =
         todoRepository.getLiveTodo(todoId)
-            .map<TodoDetailViewState> { TodoDetailViewState.ShowTodo(it) }
-            .startWith(TodoDetailViewState.ShowLoading)
+            .map<PartialTodoDetailViewState> { PartialTodoDetailViewState.ShowTodo(it) }
+            .startWith(PartialTodoDetailViewState.ShowLoading)
             .onErrorReturn {
                 when (it) {
-                    is NoRecordsFoundException -> TodoDetailViewState.ClearSingleEvent
-                    else -> TodoDetailViewState.Error(it)
-                }
-            }
-            .switchMap { viewState ->
-                when (viewState) {
-                    TodoDetailViewState.ShowLoading -> Observable.just(viewState)
-                    else -> Observable.just<TodoDetailViewState>(TodoDetailViewState.HideLoading)
-                        .startWith(viewState)
+                    is NoRecordsFoundException -> PartialTodoDetailViewState.NoTodoFound
+                    else -> PartialTodoDetailViewState.Error(it)
                 }
             }
             .subscribeOn(main)
 
-
-    private fun deleteTodoObservable(todoId: Long): Observable<TodoDetailViewState> =
+    private fun deleteTodoObservable(todoId: Long): Observable<PartialTodoDetailViewState> =
         todoRepository.deleteTodo(todoId)
-            .map<TodoDetailViewState> { TodoDetailViewState.OnDeleteSuccess }
-            .startWith(TodoDetailViewState.ShowLoading)
-            .onErrorReturn { TodoDetailViewState.Error(it) }
-            .switchMap { viewState ->
-                when (viewState) {
-                    TodoDetailViewState.ShowLoading -> Observable.just(viewState)
-                    else -> Observable.just<TodoDetailViewState>(TodoDetailViewState.HideLoading)
-                        .startWith(viewState)
-                }
-            }
+            .toObservable()
+            .map<PartialTodoDetailViewState> { PartialTodoDetailViewState.OnDeleteSuccess }
+            .startWith(PartialTodoDetailViewState.ShowLoading)
+            .onErrorReturn { PartialTodoDetailViewState.Error(it) }
             .subscribeOn(io)
+
+    private fun viewStateReducer(
+        previousState: TodoDetailViewState,
+        changes: PartialTodoDetailViewState
+    ): TodoDetailViewState = when (changes) {
+        is PartialTodoDetailViewState.ShowTodo -> TodoDetailViewState(todo = changes.todo)
+        is PartialTodoDetailViewState.Error -> {
+            previousState.error = changes.error
+            previousState.isLoading = false
+            previousState
+        }
+        PartialTodoDetailViewState.NoTodoFound -> {
+            previousState.isLoading = false
+            previousState
+        }
+        PartialTodoDetailViewState.OnDeleteSuccess -> TodoDetailViewState(onDeleteSuccess = true)
+        PartialTodoDetailViewState.ShowLoading -> {
+            previousState.isLoading = true
+            previousState
+        }
+        PartialTodoDetailViewState.ClearSingleEvent -> {
+            previousState.error = null
+            previousState.onDeleteSuccess = false
+            previousState
+        }
+    }
 
 }

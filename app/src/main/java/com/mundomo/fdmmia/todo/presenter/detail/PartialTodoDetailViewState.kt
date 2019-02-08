@@ -19,8 +19,6 @@ sealed class PartialTodoDetailViewState {
 
     object ShowLoading : PartialTodoDetailViewState()
 
-    object HideLoading : PartialTodoDetailViewState()
-
     object ClearSingleEvent : PartialTodoDetailViewState()
 
 }

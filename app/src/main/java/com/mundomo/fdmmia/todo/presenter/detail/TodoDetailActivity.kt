@@ -57,13 +57,11 @@ class TodoDetailActivity :
 
     override fun render(viewState: TodoDetailViewState) {
         TransitionManager.beginDelayedTransition(todo_detail_view)
-        when (viewState) {
-            is TodoDetailViewState.ShowTodo -> showTodo(viewState.todo)
-            is TodoDetailViewState.Error -> showError(viewState.error)
-            TodoDetailViewState.OnDeleteSuccess -> onDeleteSuccess()
-            TodoDetailViewState.ShowLoading -> showLoading(true)
-            TodoDetailViewState.HideLoading -> showLoading(false)
-            TodoDetailViewState.ClearSingleEvent -> Timber.d("clear single event")
+        viewState.todo?.let(this::showTodo)
+        viewState.error?.let(this::showError)
+        showLoading(viewState.isLoading)
+        if (viewState.onDeleteSuccess) {
+            onDeleteSuccess()
         }
     }
 

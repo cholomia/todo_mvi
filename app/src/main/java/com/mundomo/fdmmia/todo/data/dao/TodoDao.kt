@@ -35,6 +35,7 @@ class TodoDao @Inject constructor() {
     fun delete(todoId: Long): Single<Boolean> = rxTransaction { realm ->
         realm.where<Todo>()
             .equalTo(Todo::id.name, todoId)
+            .sort(Todo::id.name)
             .findAll()
             .deleteAllFromRealm()
     }
